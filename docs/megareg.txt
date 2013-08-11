@@ -1,0 +1,106 @@
+megareg(1)
+=========
+
+NAME
+----
+megareg - Register new Mega.co.nz account
+
+
+SYNOPSIS
+--------
+[verse]
+'megareg' [--script] --email <email> --name <realname> --password <password>
+'megareg' [--script] --anonymous --password <password>
+'megareg' [--script] --verify <link> --state <state> 
+
+
+DESCRIPTION
+-----------
+
+Registers a new Mega.co.nz account. You must read and agree to
+link:http://g.static.mega.co.nz/pages/terms.html[Mega.co.nz terms of service],
+before using Mega.co.nz in any way.
+
+Registration is split into two steps:
+
+. Creating a new Mega.co.nz account
+. Verifying account with the link that was sent to `<email>`
+
+You can also create what Mega.co.nz calls ephemeral account. This account is
+anonymous, and Mega.co.nz removes these accounts and files associated with 
+them on regular basis. You can use it if you want to quickly share a file
+with someone, and don't care that it may get removed by Mega.co.nz at any time.
+
+Ephemeral accounts don't need email verification step.
+
+See examples of registration below.
+
+
+OPTIONS
+-------
+
+--anonymous::
+	Create ephemeral (temporary anonymous) account instead of a regular
+        verified account.
+
+--verify <link>::
+	Verify account previously created by `megareg`. You need to
+	pass `<state>` that was returned from `megareg` and
+	a verification link from the email that was sent to `<email>`.
+
+--email <email>::
+	Email serves as your new account username. You'll be using it to sign
+	in to Mega.co.nz.
+
+--name <realname>::
+	Your real (or fake) name.
+
+--password <password>::
+	Plaintext password. No strength checking is done, so make sure you pick
+	a strong password yourself.
+
+--script::
+	After registration, print the command that can be used to finish the 
+	registration in a format suitable for scripting purposes.
+
+--agree::
+	You agree to Mega.co.nz terms of service.
+
+:mega-no-login: 1
+include::shared-options.txt[]
+
+EXAMPLE
+-------
+
+First create an non-verified account:
+
+------------
+$ megareg --email your@email.com --name "Your Name" --password "Your Password"
+
+Registration email was sent to test@megous.com. To complete registration, you must run:
+
+  megareg --state vbFFFv7AFM25etzkFXLs9A --verify LINK
+
+(Where LINK is registration link from the 'MEGA Signup' email)
+------------
+
+Now wait for a verification mail and run the command as asked:
+
+------------
+$ megareg --verify vbFFFv7AFM25etzkFXLs9A 'https://mega.co.nz/#confirmciyfWXRGFNcM...'
+
+The account was registered successfully!
+------------
+
+To create anonymous account, run:
+
+------------
+$ megareg --anonymous --password "Your Password"
+
+New anonymous account was registered with user handle 'aUDtyBfTAsA'
+------------
+
+To use anonymous account, pass user handle to `--username` option.
+
+
+include::footer.txt[]
