@@ -1,0 +1,89 @@
+megatools - command line client application for Mega
+====================================================
+
+Megatools is a collection of programs for accessing Mega service from 
+a command line of your desktop or server.
+
+Megatools allow you to copy individual files as well as entire directory 
+trees to and from the cloud. You can also perform streaming downloads for 
+example to preview videos and audio files, without needing to download 
+the entire file.
+
+Megatools are robust and optimized for fast operation - as fast as Mega 
+servers allow. Memory requirements and CPU utilization are kept at minimum.
+
+You can register account using a 'megareg' tool, with the benefit of having 
+true control of your encryption keys.
+
+Mega website can be found at http://mega.co.nz.
+
+Megatools can be downloaded at http://megatools.megous.com
+
+
+Tools
+=====
+
+  megareg      Register and verify a new mega account
+  megadf       Show your cloud storage space usage/quota
+  megals       List all remote files
+  megamkdir    Create remote directory
+  megarm       Remove remote file or directory
+  megamv       Move and rename remote files
+  megaput      Upload individual files
+  megaget      Download individual files
+  megadl       Download file from a "public" Mega link
+               (doesn't require login)
+  megastream   Streaming download of a file
+               (can be used to preview videos or music)
+  megasync     Upload or download a directory tree
+  megafs       Mount remote filesystem locally.
+
+
+All of these tools do:
+
+- Local caching of remote session/filesystem information 
+  for faster execution. Cache is encrypted with your password 
+  key.
+- Support loading login credentials from a configuration file
+
+
+Usage
+=====
+
+See man pages for how to use individual tools and how to configure them:
+
+  man megatools
+
+
+Windows Quirks
+==============
+
+On Windows, if you see weird characters in your megals output, you'll need
+to set correct CHARSET environment variable. For example on Czech Windows 
+this would mean executing this command in cmd before using the tools:
+
+  set CHARSET=CP852
+
+This is just a cosmetic issue. Internally, megatools always work with UTF-8
+file names, and even if the tool's terminal output is corrupted, files names
+of downloaded/uploaded files will be correct.
+
+
+Author
+======
+
+Megatools were written by Ondřej Jirman <megous@megous.com>, 2013
+Webiste: http://megatools.megous.com
+
+
+Support and bug reports
+=======================
+
+If you think you've found bug in megatools, send a report including enough
+information for recreating the issue to: megous@megous.com
+
+
+License
+=======
+
+Megatools are licensed under GPLv2, see LICENSE file for details.
