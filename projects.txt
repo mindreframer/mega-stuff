@@ -1,6 +1,5 @@
+https://github.com/megous/megatools.git
+https://github.com/richardasaurus/mega.py.git
 https://github.com/t3rm1n4l/go-mega.git
 https://github.com/t3rm1n4l/megacmd.git
 https://github.com/topac/rmega.git
-https://github.com/megous/megatools.git
-https://github.com/richardasaurus/mega.py.git
-
