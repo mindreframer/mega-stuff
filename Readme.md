@@ -6,21 +6,21 @@
 
     megous/megatools:
       Open-source command line tools and C library (libmega) for accessing Mega.co.nz cloud storage.
-       81 commits, last change: 2013-05-19 22:45:10, 93 stars, 15 forks
+       81 commits, last change: , 144 stars, 32 forks
 
     richardasaurus/mega.py:
       Python library for the Mega.co.nz API.
-       155 commits, last change: 2013-06-27 14:27:58, 106 stars, 36 forks
+       158 commits, last change: , 150 stars, 59 forks
 
     t3rm1n4l/go-mega:
       A client library in go for mega.co.nz storage service
-       29 commits, last change: 2013-07-16 18:57:36, 6 stars, 3 forks
+       32 commits, last change: , 18 stars, 9 forks
 
     t3rm1n4l/megacmd:
       A command-line client for mega.co.nz storage service
-       21 commits, last change: 2013-07-16 18:58:39, 13 stars, 4 forks
+       22 commits, last change: , 65 stars, 14 forks
 
     topac/rmega:
       mega.co.nz ruby api
-       128 commits, last change: 2013-08-22 07:51:59, 12 stars, 4 forks
+       134 commits, last change: , 21 stars, 6 forks
 <!-- PROJECTS_LIST_END -->
