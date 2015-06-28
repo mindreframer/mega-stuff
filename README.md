@@ -1,3 +1,12 @@
+# Deprecated
+
+Mega.py is now deprecated, please use the official SDK https://github.com/meganz/sdk2.
+
+I aim to write a wrapper for the SDK when i have the time to do so.
+
+------------------------
+
+
 # Mega.py
 [![Build Status](https://travis-ci.org/richardasaurus/mega.py.png?branch=master)](https://travis-ci.org/richardasaurus/mega.py)
 [![Downloads](https://pypip.in/d/mega.py/badge.png)](https://crate.io/packages/mega.py/)
