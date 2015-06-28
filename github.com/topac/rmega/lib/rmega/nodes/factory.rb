@@ -1,3 +1,9 @@
+require 'rmega/nodes/uploadable'
+require 'rmega/nodes/expandable'
+require 'rmega/nodes/downloadable'
+require 'rmega/nodes/deletable'
+require 'rmega/nodes/traversable'
+require 'rmega/nodes/node_key'
 require 'rmega/nodes/node'
 require 'rmega/nodes/file'
 require 'rmega/nodes/folder'
@@ -10,31 +16,38 @@ module Rmega
     module Factory
       extend self
 
+      URL_REGEXP = /mega\..+\/\#([A-Z0-9\_\-\!\=]+)/i
+
+      FOLDER_URL_REGEXP = /mega\..+\/\#\F([A-Z0-9\_\-\!\=]+)/i
+
+      def url?(string)
+        string.to_s =~ URL_REGEXP
+      end
+
       def build(session, data)
-        type_name = type(data['t'])
-        node_class = Nodes.const_get("#{type_name.to_s.capitalize}")
-        node_class.new(session, data)
+        type = Node::TYPES[data['t']].to_s
+        return Nodes.const_get(type.capitalize).new(session, data)
       end
 
-      # TODO: support other node types than File
-      def build_from_url(session, url)
+      def build_from_url(url, session = Session.new)
         public_handle, key = url.strip.split('!')[1, 2]
-        data = session.request(a: 'g', g: 1, p: public_handle)
 
-        Nodes::File.new(session, data).tap { |n| n.public_url = url }
-      end
+        raise "Invalid url or missing file key" unless key
 
-      def mega_url?(url)
-        !!(url.to_s =~ /^https:\/\/mega\.co\.nz\/#!.*$/i)
-      end
+        node = if url =~ FOLDER_URL_REGEXP
+          nodes_data = session.request({a: 'f', c: 1, r: 1}, {n: public_handle})
+          session.master_key = Utils.base64urldecode(key)
+          session.storage.nodes = nodes_data['f'].map { |data| Nodes::Factory.build(session, data) }
+          session.storage.nodes[0]
+        else
+          data = session.request(a: 'g', g: 1, p: public_handle)
+          Nodes::File.new(session, data)
+        end
 
-      def type(number)
-        founded_type = types.find { |k, v| number == v }
-        founded_type.first if founded_type
-      end
+        node.instance_variable_set('@public_handle', public_handle)
+        node.instance_variable_set('@public_url', url)
 
-      def types
-        {file: 0, folder: 1, root: 2, inbox: 3, trash: 4}
+        return node
       end
     end
   end

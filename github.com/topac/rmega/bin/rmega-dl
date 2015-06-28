@@ -1,0 +1,47 @@
+#!/usr/bin/env ruby
+
+require 'rmega'
+require 'rmega/cli'
+
+include Rmega::CLI::Helpers
+
+if ARGV.empty?
+  ARGV << '--help'
+else
+  cli_options[:url] = ARGV[0]
+end
+
+OptionParser.new do |opts|
+  opts.banner = "Usage:\n"
+  opts.banner << "\t#{File.basename(__FILE__)} url [options]\n"
+  opts.banner << "Options:"
+
+  opts.on("-o PATH", "--output", "Local destination path") { |path|
+    cli_options[:output] = path
+  }
+
+  apply_opt_parser_options(opts)
+end.parse!
+
+rescue_errors_and_inerrupt do
+  urls = [cli_options[:url]]
+
+  unless mega_url?(cli_options[:url])
+    urls = scan_mega_urls(Session.new.http_get_content(cli_options[:url])).uniq
+    raise("Nothing to download") if urls.empty?
+  end
+
+  urls.each_with_index do |url, index|
+    node = Rmega::Nodes::Factory.build_from_url(url)
+
+    info = if node.type == :folder
+      stats = node.storage.stats
+      "(#{stats[:files]} file#{'s' if stats[:files] > 1}, #{humanize_bytes(stats[:size])})"
+    end
+
+    puts "[#{index+1}/#{urls.count}] #{node.name} #{info}"
+
+    path = cli_options[:output] || Dir.pwd
+    node.download(path)
+  end
+end

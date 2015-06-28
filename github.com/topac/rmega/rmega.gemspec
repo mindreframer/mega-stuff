@@ -2,11 +2,11 @@
 require File.expand_path('../lib/rmega/version', __FILE__)
 
 Gem::Specification.new do |gem|
-  gem.authors       = ["Daniele Molteni"]
+  gem.authors       = ["topac"]
   gem.email         = ["dani.m.mobile@gmail.com"]
   gem.description   = %q{mega.co.nz ruby api}
   gem.summary       = %q{mega.co.nz ruby api}
-  gem.homepage      = "https://github.com/topac/rmega"
+  gem.homepage      = Rmega::HOMEPAGE
 
   gem.files         = `git ls-files`.split($\)
   gem.executables   = gem.files.grep(%r{^bin/}).map{ |f| File.basename(f) }
@@ -21,7 +21,5 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency "rspec"
   gem.add_development_dependency "rake"
 
-  gem.add_dependency "httpclient"
-  gem.add_dependency 'active_support'
-  gem.add_dependency "execjs"
+  gem.add_dependency "activesupport"
 end
