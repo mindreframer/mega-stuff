@@ -338,7 +338,10 @@ func (m *Mega) api_request(r []byte) ([]byte, error) {
 		if err == nil {
 			if resp.StatusCode == 200 {
 				goto success
+			} else {
+				resp.Body.Close()
 			}
+
 			err = errors.New("Http Status:" + resp.Status)
 		}
 
@@ -665,7 +668,7 @@ func (m Mega) DownloadFile(src *Node, dstpath string, progress *chan int) error 
 	sort.Ints(sorted_chunks)
 
 	workch := make(chan int)
-	errch := make(chan error, 1)
+	errch := make(chan error, m.dl_workers)
 	wg := sync.WaitGroup{}
 
 	// Fire chunk download workers
@@ -674,22 +677,11 @@ func (m Mega) DownloadFile(src *Node, dstpath string, progress *chan int) error 
 
 		go func() {
 			defer wg.Done()
-			var id int
-			var ok bool
 
-			for {
-				// Wait for work blocked on channel
-				select {
-				case err := <-errch:
-					errch <- err
-					return
-				case id, ok = <-workch:
-					if ok == false {
-						return
-					}
-				}
-
+			// Wait for work blocked on channel
+			for id := range workch {
 				var resource *http.Response
+				var err error
 				mutex.Lock()
 				chk_start := sorted_chunks[id]
 				chk_size := chunks[chk_start]
@@ -698,7 +690,11 @@ func (m Mega) DownloadFile(src *Node, dstpath string, progress *chan int) error 
 				for retry := 0; retry < m.retries+1; retry++ {
 					resource, err = client.Get(chunk_url)
 					if err == nil {
-						break
+						if resource.StatusCode == 200 {
+							break
+						} else {
+							resource.Body.Close()
+						}
 					}
 				}
 
@@ -732,8 +728,10 @@ func (m Mega) DownloadFile(src *Node, dstpath string, progress *chan int) error 
 				}
 
 				mutex.Lock()
-				chunk_macs[id] = make([]byte, 16)
-				copy(chunk_macs[id], block)
+				if len(chunk_macs) > 0 {
+					chunk_macs[id] = make([]byte, 16)
+					copy(chunk_macs[id], block)
+				}
 				mutex.Unlock()
 
 				if progress != nil {
@@ -744,26 +742,17 @@ func (m Mega) DownloadFile(src *Node, dstpath string, progress *chan int) error 
 	}
 
 	// Place chunk download jobs to chan
-	for id := 0; id < len(chunks); {
+	err = nil
+	for id := 0; id < len(chunks) && err == nil; {
 		select {
 		case workch <- id:
 			id++
-			if id == len(chunks) {
-				close(workch)
-				break
-			}
-		case err := <-errch:
-			errch <- err
-			break
+		case err = <-errch:
 		}
 	}
+	close(workch)
 
 	wg.Wait()
-
-	select {
-	case err = <-errch:
-	default:
-	}
 
 	if err != nil {
 		os.Remove(dstpath)
@@ -857,30 +846,17 @@ func (m *Mega) UploadFile(srcpath string, parent *Node, name string, progress *c
 	sort.Ints(sorted_chunks)
 
 	workch := make(chan int)
-	errch := make(chan error, 1)
+	errch := make(chan error, m.ul_workers)
 	wg := sync.WaitGroup{}
 
-	// Fire chunk download workers
-	for w := 0; w < m.dl_workers; w++ {
+	// Fire chunk upload workers
+	for w := 0; w < m.ul_workers; w++ {
 		wg.Add(1)
 
 		go func() {
 			defer wg.Done()
-			var id int
-			var ok bool
 
-			for {
-				// Wait for work blocked on channel
-				select {
-				case err := <-errch:
-					errch <- err
-					return
-				case id, ok = <-workch:
-					if ok == false {
-						return
-					}
-				}
-
+			for id := range workch {
 				mutex.Lock()
 				chk_start := sorted_chunks[id]
 				chk_size := chunks[chk_start]
@@ -905,19 +881,32 @@ func (m *Mega) UploadFile(srcpath string, parent *Node, name string, progress *c
 				}
 
 				mutex.Lock()
-				chunk_macs[id] = make([]byte, 16)
-				copy(chunk_macs[id], block)
+				if len(chunk_macs) > 0 {
+					chunk_macs[id] = make([]byte, 16)
+					copy(chunk_macs[id], block)
+				}
 				mutex.Unlock()
 
+				var rsp *http.Response
+				var err error
 				ctr_aes.XORKeyStream(chunk, chunk)
 				chk_url := fmt.Sprintf("%s/%d", uploadUrl, chk_start)
 				reader := bytes.NewBuffer(chunk)
 				req, _ := http.NewRequest("POST", chk_url, reader)
-				rsp, err := client.Do(req)
+
 				chunk_resp := []byte{}
-				if err == nil {
-					chunk_resp, err = ioutil.ReadAll(rsp.Body)
+				for retry := 0; retry < m.retries+1; retry++ {
+					rsp, err = client.Do(req)
+					if err == nil {
+						if rsp.StatusCode == 200 {
+							break
+						} else {
+							rsp.Body.Close()
+						}
+					}
 				}
+
+				chunk_resp, err = ioutil.ReadAll(rsp.Body)
 
 				if err != nil {
 					errch <- err
@@ -937,27 +926,26 @@ func (m *Mega) UploadFile(srcpath string, parent *Node, name string, progress *c
 		}()
 	}
 
-	// Place chunk download jobs to chan
-	for id := 0; id < len(chunks); {
-		select {
-		case workch <- id:
-			id++
-			if id == len(chunks) {
-				close(workch)
-				break
+	err = nil
+	if len(chunks) == 0 {
+		// File size is zero
+		// Tell single worker to request for completion handle
+		sorted_chunks = append(sorted_chunks, 0)
+		chunks[0] = 0
+		workch <- 0
+	} else {
+		// Place chunk download jobs to chan
+		for id := 0; id < len(chunks) && err == nil; {
+			select {
+			case workch <- id:
+				id++
+			case err = <-errch:
 			}
-		case err := <-errch:
-			errch <- err
-			break
 		}
 	}
+	close(workch)
 
 	wg.Wait()
-
-	select {
-	case err = <-errch:
-	default:
-	}
 
 	if err != nil {
 		return nil, err
@@ -1161,6 +1149,12 @@ func (m *Mega) pollEvents() {
 			time.Sleep(time.Millisecond * 10)
 			continue
 		}
+
+		if resp.StatusCode != 200 {
+			resp.Body.Close()
+			continue
+		}
+
 		buf, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			time.Sleep(time.Millisecond * 10)
@@ -1198,11 +1192,17 @@ func (m *Mega) pollEvents() {
 		}
 
 		if events.W != "" {
-			_, err := client.Get(events.W)
+			rsp, err := client.Get(events.W)
 			if err != nil {
 				time.Sleep(time.Millisecond * 10)
 				continue
 			}
+
+			if rsp.StatusCode != 200 {
+				rsp.Body.Close()
+				continue
+			}
+
 		} else {
 			m.FS.mutex.Lock()
 			for _, ev := range events.E {
