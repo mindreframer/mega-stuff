@@ -31,13 +31,12 @@ typedef enum
 
 G_BEGIN_DECLS
 
-gchar*                  mega_format_hex                 (const guchar* data, gsize len, MegaHexFormat fmt);
+gchar* mega_base64urlencode(const guchar* data, gsize len);
+guchar* mega_base64urldecode(const gchar* str, gsize* len);
 
-gchar*                  mega_base64urlencode            (const guchar* data, gsize len);
-guchar*                 mega_base64urldecode            (const gchar* str, gsize* len);
-                        
-void                    mega_randomness                 (guchar* buffer, gsize len);
-void                    mega_randomness_nettle          (gpointer ctx, guint len, guchar* buffer);
+guchar* mega_gbytes_to_string(GBytes *bytes, gsize *len);
+
+gchar* mega_format_hex(const guchar* data, gsize len, MegaHexFormat fmt);
 
 G_END_DECLS
 

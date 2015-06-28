@@ -18,20 +18,18 @@
  */
 
 /**
- * MegaChunkedCbcMac:
+ * SECTION:mega-chunked-cbc-mac
+ * @short_description: 
+ * @see_also: #GObject
+ * @stability: Stable
+ * @include: mega-chunked-cbc-mac.h
  *
- * Object for calculating Meta-MAC from CBC-MACs of data chunks. To calculate
- * meta mac, you need IV, AES key, and data.
- *
- * Calculation is done in three steps:
- *
- *   - setup
- *   - update(s)
- *   - finish
+ * Description...
  */
 
-#include <string.h>
 #include "mega-chunked-cbc-mac.h"
+
+#include <string.h>
 
 struct _MegaChunkedCbcMacPrivate
 {
@@ -44,6 +42,23 @@ struct _MegaChunkedCbcMacPrivate
   guchar meta_mac[16];
   gboolean finished;
 };
+
+// {{{ GObject property and signal enums
+//
+enum MegaChunkedCbcMacProp
+{
+  PROP_0,
+  N_PROPERTIES
+};
+
+enum MegaChunkedCbcMacSignal
+{
+  N_SIGNALS
+};
+
+static guint signals[N_SIGNALS];
+
+// }}}
 
 static guint64 get_chunk_size(gsize idx)
 {
@@ -85,16 +100,18 @@ static void close_chunk(MegaChunkedCbcMacPrivate* priv)
  */
 MegaChunkedCbcMac* mega_chunked_cbc_mac_new(void)
 {
-  return g_object_new(MEGA_TYPE_CHUNKED_CBC_MAC, NULL);
+  MegaChunkedCbcMac *mac = g_object_new(MEGA_TYPE_CHUNKED_CBC_MAC, NULL);
+
+  return mac;
 }
 
 /**
  * mega_chunked_cbc_mac_setup:
  * @mac: a #MegaChunkedCbcMac
- * @key: AES key to be used for calculation.
- * @iv: (element-type guint8) (array fixed-size=8) (transfer none): Initialization vector.
+ * @key: 
+ * @iv: 
  *
- * Initialize MAC calculator.
+ * Description...
  */
 void mega_chunked_cbc_mac_setup(MegaChunkedCbcMac* mac, MegaAesKey* key, guchar* iv)
 {
@@ -106,7 +123,8 @@ void mega_chunked_cbc_mac_setup(MegaChunkedCbcMac* mac, MegaAesKey* key, guchar*
 
   priv = mac->priv;
 
-  g_clear_object(&priv->key);
+  if (priv->key)
+    g_object_unref(priv->key);
 
   priv = mac->priv;
   priv->key = g_object_ref(key);
@@ -121,10 +139,10 @@ void mega_chunked_cbc_mac_setup(MegaChunkedCbcMac* mac, MegaAesKey* key, guchar*
 /**
  * mega_chunked_cbc_mac_update:
  * @mac: a #MegaChunkedCbcMac
- * @data: (element-type guint8) (array length=len) (transfer none): Plaintext * data.
- * @len: Length of the data buffer.
+ * @data: 
+ * @gsize len: 
  *
- * Feed data to the MAC calculator.
+ * Description...
  */
 void mega_chunked_cbc_mac_update(MegaChunkedCbcMac* mac, const guchar* data, gsize len)
 {
@@ -158,9 +176,9 @@ void mega_chunked_cbc_mac_update(MegaChunkedCbcMac* mac, const guchar* data, gsi
 /**
  * mega_chunked_cbc_mac_finish:
  * @mac: a #MegaChunkedCbcMac
- * @meta_mac: (out caller-allocates) (element-type guint8) (array fixed-size=16): Meta MAC.
+ * @meta_mac: 
  *
- * Finish MAC calculation and return Meta-MAC.
+ * Description...
  */
 void mega_chunked_cbc_mac_finish(MegaChunkedCbcMac* mac, guchar* meta_mac)
 {
@@ -202,6 +220,28 @@ void mega_chunked_cbc_mac_finish(MegaChunkedCbcMac* mac, guchar* meta_mac)
 
 // {{{ GObject type setup
 
+static void mega_chunked_cbc_mac_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
+{
+  MegaChunkedCbcMac *mac = MEGA_CHUNKED_CBC_MAC(object);
+
+  switch (property_id)
+  {
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
+  }
+}
+
+static void mega_chunked_cbc_mac_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
+{
+  MegaChunkedCbcMac *mac = MEGA_CHUNKED_CBC_MAC(object);
+
+  switch (property_id)
+  {
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
+  }
+}
+
 G_DEFINE_TYPE(MegaChunkedCbcMac, mega_chunked_cbc_mac, G_TYPE_OBJECT);
 
 static void mega_chunked_cbc_mac_init(MegaChunkedCbcMac *mac)
@@ -209,11 +249,23 @@ static void mega_chunked_cbc_mac_init(MegaChunkedCbcMac *mac)
   mac->priv = G_TYPE_INSTANCE_GET_PRIVATE(mac, MEGA_TYPE_CHUNKED_CBC_MAC, MegaChunkedCbcMacPrivate);
 }
 
+static void mega_chunked_cbc_mac_dispose(GObject *object)
+{
+  G_GNUC_UNUSED MegaChunkedCbcMac *mac = MEGA_CHUNKED_CBC_MAC(object);
+
+  //
+  // Free everything that may hold reference to MegaChunkedCbcMac
+  //
+
+  G_OBJECT_CLASS(mega_chunked_cbc_mac_parent_class)->dispose(object);
+}
+
 static void mega_chunked_cbc_mac_finalize(GObject *object)
 {
   MegaChunkedCbcMac *mac = MEGA_CHUNKED_CBC_MAC(object);
   
-  g_clear_object(&mac->priv->key);
+  if (mac->priv->key)
+    g_object_unref(mac->priv->key);
 
   G_OBJECT_CLASS(mega_chunked_cbc_mac_parent_class)->finalize(object);
 }
@@ -221,10 +273,23 @@ static void mega_chunked_cbc_mac_finalize(GObject *object)
 static void mega_chunked_cbc_mac_class_init(MegaChunkedCbcMacClass *klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
+  GParamSpec *param_spec;
 
+  gobject_class->set_property = mega_chunked_cbc_mac_set_property;
+  gobject_class->get_property = mega_chunked_cbc_mac_get_property;
+
+  gobject_class->dispose = mega_chunked_cbc_mac_dispose;
   gobject_class->finalize = mega_chunked_cbc_mac_finalize;
 
   g_type_class_add_private(klass, sizeof(MegaChunkedCbcMacPrivate));
+
+  /* object properties */
+
+  /* object properties end */
+
+  /* object signals */
+
+  /* object signals end */
 }
 
 // }}}

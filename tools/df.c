@@ -37,7 +37,7 @@ static GOptionEntry entries[] =
   { NULL }
 };
 
-static gchar* format_size(gint64 size)
+static gchar* format_size(guint64 size)
 {
   if (opt_human)
     return g_format_size_full(size, G_FORMAT_SIZE_IEC_UNITS);
@@ -46,32 +46,15 @@ static gchar* format_size(gint64 size)
   else if (opt_gb)
     size /= 1024 * 1024 * 1024;
 
-  return g_strdup_printf("%" G_GINT64_FORMAT, size);
-}
-
-static void print_line(const gchar* label, const gchar* str)
-{
-  g_print("%-24s%s\n", label, str);
-}
-
-static void print_json(const gchar* json, const gchar* label, const gchar* path)
-{
-  const gchar* el = s_json_path(json, path);
-  if (el)
-  {
-    gchar* str = s_json_get_string(el);
-    if (str)
-      print_line(label, str);
-    g_free(str);
-  }
+  return g_strdup_printf("%" G_GUINT64_FORMAT, size);
 }
 
 int main(int ac, char* av[])
 {
   GError *local_err = NULL;
-  MegaSession* s;
+  mega_session* s;
 
-  tool_init(&ac, &av, "- display mega.co.nz storage information", entries);
+  tool_init(&ac, &av, "- display mega.co.nz storage quotas/usage", entries);
 
   if (opt_total || opt_free || opt_used)
   {
@@ -102,42 +85,38 @@ int main(int ac, char* av[])
   }
 
   s = tool_start_session();
-
-  gchar* info = mega_session_get_info(s, &local_err);
-  if (!info)
-  {
-    g_printerr("ERROR: Can't determine disk usage: %s\n", local_err ? local_err->message : "unknown error");
-    g_clear_error(&local_err);
-    tool_fini(s);
+  if (!s)
     return 1;
+
+  mega_user_quota* q = mega_session_user_quota(s, &local_err);
+  if (!q)
+  {
+    g_printerr("ERROR: Can't determine disk usage: %s\n", local_err->message);
+    g_clear_error(&local_err);
+    goto err;
   }
 
-  gint64 total = s_json_get_member_int(info, "total_storage", -1);
-  gint64 used = s_json_get_member_int(info, "used_storage", -1);
-  gint64 free = total >= used ? total - used : 0;
+  guint64 free = q->total >= q->used ? q->total - q->used : 0;
 
   if (opt_total)
-    g_print("%s\n", format_size(total));
+    g_print("%s\n", format_size(q->total));
   else if (opt_used)
-    g_print("%s\n", format_size(used));
+    g_print("%s\n", format_size(q->used));
   else if (opt_free)
     g_print("%s\n", format_size(free));
   else
   {
-    print_json(info, "User handle:",         ".user!s");
-    print_json(info, "User email:",          ".email!s");
-    print_json(info, "User name:",           ".name!s");
-    print_json(info, "User type:",           ".user_type!s");
-    print_json(info, "Subscpription type:",  ".subscription_type!s");
-    print_json(info, "Subscpription cycle:", ".subscription_cycle!s");
-    print_json(info, "Next payment:",        ".subscription_next_payment!s");
-    print_json(info, "Subscribed until:",    ".subscription_until!s");
-    print_line(      "Total:",               format_size(total));
-    print_line(      "Used:",                format_size(used));
-    print_line(      "Free:",                format_size(free));
+    g_print("Total: %s\n", format_size(q->total));
+    g_print("Used:  %s\n", format_size(q->used));
+    g_print("Free:  %s\n", format_size(free));
   }
 
-  g_free(info);
+  g_free(q);
+
   tool_fini(s);
   return 0;
+
+err:
+  tool_fini(s);
+  return 1;
 }

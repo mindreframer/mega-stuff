@@ -1,11 +1,11 @@
 AC_PREREQ(2.60)
-AC_INIT([megatools],[1.9.92],[megous@megous.com],[megatools])
+AC_INIT([megatools],[1.9.96],[megous@megous.com],[megatools])
 AC_CONFIG_SRCDIR([Makefile.am])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADER([config.h])
-AM_INIT_AUTOMAKE([foreign -Wno-portability])
+AM_INIT_AUTOMAKE([silent-rules foreign subdir-objects -Wno-portability])
 AM_MAINTAINER_MODE
-m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
+AM_SILENT_RULES([yes])
 
 AC_PROG_CC
 AM_PROG_CC_C_O
@@ -28,9 +28,10 @@ AC_SUBST(LIB_MEGA_VERSION)
 
 GLIB_VERSION="2.32.0"
 GOBJECT_INTROSPECTION_VERSION="1.30"
-NETTLE_REQUIRES="nettle >= 2.5 hogweed >= 2.5"
+LIBCURL_REQUIRES="libcurl"
+OPENSSL_REQUIRES="openssl"
 FUSE_REQUIRES="fuse"
-MEGA_REQUIRES="gio-2.0 >= $GLIB_VERSION $NETTLE_REQUIRES"
+MEGA_REQUIRES="gio-2.0 >= $GLIB_VERSION $LIBCURL_REQUIRES $OPENSSL_REQUIRES"
 
 # for libmega.pc
 AC_SUBST(MEGA_REQUIRES)
@@ -47,23 +48,39 @@ AS_IF([test "x$enable_shared" = "xyes"], [
   AM_CONDITIONAL([HAVE_INTROSPECTION], [false])
 ])
 
-# check for gmp
-AC_CHECK_LIB(gmp,__gmpz_init,, [AC_MSG_ERROR([GNU MP not found, see http://swox.com/gmp])])
+# check openssl
+PKG_CHECK_MODULES(OPENSSL, [$OPENSSL_REQUIRES])
+AC_SUBST(OPENSSL_CFLAGS)
+AC_SUBST(OPENSSL_LIBS)
 
-# check nettle
-PKG_CHECK_MODULES(NETTLE, [$NETTLE_REQUIRES])
-AC_SUBST(NETTLE_CFLAGS)
-AC_SUBST(NETTLE_LIBS)
+# check libcurl
+PKG_CHECK_MODULES(LIBCURL, [$LIBCURL_REQUIRES])
+AC_SUBST(LIBCURL_CFLAGS)
+AC_SUBST(LIBCURL_LIBS)
 
 # check fuse
-PKG_CHECK_MODULES(FUSE, [$FUSE_REQUIRES], [enable_fuse=yes], [enable_fuse=no])
-AM_CONDITIONAL([ENABLE_FUSE], [test x$enable_fuse = xyes])
-AC_SUBST(FUSE_CFLAGS)
-AC_SUBST(FUSE_LIBS)
+AC_ARG_WITH([fuse],
+  AS_HELP_STRING([--without-fuse], [Ignore presence of fuse and disable it]))
 
-# check if we can build tests
-PKG_CHECK_MODULES(GLIBTESTS, [glib-2.0 >= 2.34.0], [enable_tests=yes], [enable_tests=no])
-AM_CONDITIONAL([ENABLE_TESTS], [test x$enable_tests = xyes])
+AS_IF([test "x$with_fuse" != "xno"],
+  [PKG_CHECK_MODULES(FUSE, [$FUSE_REQUIRES], [ENABLE_FUSE=yes], [ENABLE_FUSE=no])],
+  [ENABLE_FUSE=no])
+
+AS_IF([test "x$ENABLE_FUSE" = "xyes"],
+  [
+    AC_SUBST(FUSE_CFLAGS)
+    AC_SUBST(FUSE_LIBS)
+  ],
+    [AS_IF([test "x$with_fuse" = "xyes"],
+      [AC_MSG_ERROR([fuse support requested but not found])
+    ])
+])
+
+AM_CONDITIONAL([ENABLE_FUSE], [test "x$ENABLE_FUSE" = "xyes"])
+
+# glib for tests
+PKG_CHECK_MODULES(GLIBTESTS, [glib-2.0 >= 2.34.0], [ENABLE_TESTS=yes], [ENABLE_TESTS=no])
+AM_CONDITIONAL([ENABLE_TESTS], [test x$ENABLE_TESTS = xyes])
 
 # enable dev compiler warnings
 AC_ARG_ENABLE([warnings], AC_HELP_STRING([--enable-warnings], [Build with compiler warnings enabled.]))
@@ -89,11 +106,6 @@ AS_IF([test "x$enable_docs_build" = "xyes"], [
 AC_CONFIG_FILES([
   Makefile
   libmega.pc
-  sjson/Makefile
-  mega/Makefile
-  tools/Makefile
-  tests/Makefile
-  docs/Makefile
 ])
 
 AC_OUTPUT
@@ -104,8 +116,8 @@ Configured features:
 
   docs build: $enable_docs_build
   warnings: $enable_warnings
-  megafs: $enable_fuse (requires fuse)
-  tests: $enable_tests (requires glib-2.0 >= 2.34.0)
+  megafs: $ENABLE_FUSE (requires fuse)
+  tests: $ENABLE_TESTS (requires glib-2.0 >= 2.34.0)
 
 Run make now.
 

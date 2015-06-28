@@ -17,16 +17,25 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __TOOLS_H__
-#define __TOOLS_H__
+#ifndef __TOOLS_H
+#define __TOOLS_H
 
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <gio/gio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <mega/mega.h>
-#include "sjson.h"
+#include "oldmega.h"
+#include "alloc.h"
+
+void            tool_init_bare        (gint* ac, gchar*** av, const gchar* tool_name, GOptionEntry* tool_entries);
+void            tool_init             (gint* ac, gchar*** av, const gchar* tool_name, GOptionEntry* tool_entries);
+mega_session*   tool_start_session    (void);
+void            tool_fini             (mega_session* s);
+
+gchar*          tool_convert_filename (const gchar* path, gboolean local);
+
+extern gboolean tool_allow_unknown_options;
 
 #ifdef G_OS_WIN32
 #define ESC_CLREOL ""
@@ -41,23 +50,5 @@
 #define ESC_GRAY "\x1b[30;1m"
 #define ESC_NORMAL "\x1b[0m"
 #endif
-
-#define DEBUG_API   0x0001
-#define DEBUG_FS    0x0002
-#define DEBUG_CACHE 0x0004
-
-extern guint tool_debug;
-extern gboolean tool_allow_unknown_options;
-
-void            tool_init_bare        (gint* ac, gchar*** av, const gchar* tool_name, GOptionEntry* tool_entries);
-void            tool_init             (gint* ac, gchar*** av, const gchar* tool_name, GOptionEntry* tool_entries);
-MegaSession*    tool_start_session    (void);
-void            tool_fini             (MegaSession* s);
-
-gchar*          tool_prompt           (gboolean echo, const gchar* format, ...);
-gboolean        tool_is_interactive   (void);
-
-gboolean        is_email_valid        (const gchar* email);
-gboolean        is_user_handle_valid  (const gchar* handle);
 
 #endif

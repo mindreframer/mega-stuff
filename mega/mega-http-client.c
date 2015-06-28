@@ -23,15 +23,15 @@
  * Simple HTTP client with support for:
  *
  *   - TLS/SSL
- *   - Persistent connections
+ *   - Persistent connections whenever possible
  *   - Gio streams API
  *   - Automatic error recovery
  *
- * Note that you can't perform multiple requests at once with single http client
- * instance. If you want to make multiple connections at once, create multiple
- * HTTP clients.
+ * Note that you can't have multiple requests at once in one http client.
+ * If you want to make multiple connections at once, create multiple HTTP
+ * clients.
  *
- * After a non HTTP error, the client will restart the connection for the next 
+ * After non HTTP error, the client will restart the connection for the next 
  * request.
  */
 
@@ -108,25 +108,6 @@ static guint signals[N_SIGNALS];
 
 // }}}
 
-static gboolean stri_equal(gconstpointer v1, gconstpointer v2) 
-{
-  const gchar *string1 = v1;
-  const gchar *string2 = v2;
-
-  return g_ascii_strcasecmp (string1, string2) == 0;
-}
-
-static guint stri_hash(gconstpointer v)
-{
-  const signed char *p;
-  guint32 h = 5381;
-
-  for (p = v; *p != '\0'; p++)
-    h = (h << 5) + h + g_ascii_tolower(*p);
-
-  return h;
-}
-
 static gboolean parse_url(MegaHttpClient* http_client, const gchar* url, gboolean* https, gchar** host, guint16* port, gchar** resource)
 {
   GMatchInfo *match_info = NULL;
@@ -186,9 +167,18 @@ static void do_disconnect(MegaHttpClient* http_client)
 
   MegaHttpClientPrivate* priv = http_client->priv;
 
-  g_clear_object(&priv->istream);
-  g_clear_object(&priv->ostream);
-  g_clear_object(&priv->conn);
+  if (priv->istream)
+    g_object_unref(priv->istream);
+
+  if (priv->ostream)
+    g_object_unref(priv->ostream);
+
+  if (priv->conn)
+    g_object_unref(priv->conn);
+
+  priv->conn = NULL;
+  priv->istream = NULL;
+  priv->ostream = NULL;
 }
 
 static gboolean do_connect(MegaHttpClient* http_client, GCancellable* cancellable, GError** err)
@@ -301,6 +291,14 @@ static gboolean do_receive_headers(MegaHttpClient* http_client, GCancellable* ca
       {
         g_set_error(err, MEGA_HTTP_CLIENT_ERROR, MEGA_HTTP_CLIENT_ERROR_OTHER, "Can't read response status: %s", header);
         g_free(header);
+        goto err;
+      }
+
+      if (status == 500 && g_str_equal(message, "Server Too Busy"))
+      {
+        g_set_error(err, MEGA_HTTP_CLIENT_ERROR, MEGA_HTTP_CLIENT_ERROR_SERVER_BUSY, "Server returned status %d: %s", status, message);
+        g_free(header);
+        g_free(message);
         goto err;
       }
 
@@ -429,6 +427,8 @@ static gboolean goto_state(MegaHttpClient* http_client, gint target_state, GCanc
 
   MegaHttpClientPrivate* priv = http_client->priv;
 
+  //g_print("GOTO %d -> %d\n", priv->conn_state, target_state);
+
   // we can always transition to NONE/FAILED states by disconnecting
   if (target_state == CONN_STATE_NONE || target_state == CONN_STATE_FAILED)
   {
@@ -543,6 +543,11 @@ err:
   return FALSE;
 }
 
+GQuark mega_http_client_error_quark(void)
+{
+  return g_quark_from_static_string("mega-http-client-error-quark");
+}
+
 /**
  * mega_http_client_new:
  *
@@ -552,7 +557,9 @@ err:
  */
 MegaHttpClient* mega_http_client_new(void)
 {
-  return g_object_new(MEGA_TYPE_HTTP_CLIENT, NULL);
+  MegaHttpClient *http_client = g_object_new(MEGA_TYPE_HTTP_CLIENT, NULL);
+
+  return http_client;
 }
 
 /**
@@ -577,7 +584,7 @@ void mega_http_client_set_header(MegaHttpClient* http_client, const gchar* name,
 /**
  * mega_http_client_set_content_type:
  * @http_client: a #MegaHttpClient
- * @content_type: (allow-none): Content type.
+ * @content_type: Content type.
  *
  * Set content type header.
  */
@@ -728,9 +735,9 @@ GString* mega_http_client_post_simple(MegaHttpClient* http_client, const gchar* 
     return NULL;
   }
 
-  if (response_length > 32 * MB) 
+  if (response_length > 256 * MB) 
   {
-    g_set_error(err, MEGA_HTTP_CLIENT_ERROR, MEGA_HTTP_CLIENT_ERROR_OTHER, "Response length over 32 MiB not supported (for post_simple): %s", url);
+    g_set_error(err, MEGA_HTTP_CLIENT_ERROR, MEGA_HTTP_CLIENT_ERROR_OTHER, "Response length over 256 MiB not supported (for post_simple): %s", url);
     g_object_unref(io);
     return NULL;
   }
@@ -765,7 +772,16 @@ GString* mega_http_client_post_simple(MegaHttpClient* http_client, const gchar* 
 }
 
 /**
- * mega_http_client_write: (skip)
+ * mega_http_client_write:
+ * @http_client: a #MegaHttpClient
+ * @buffer: 
+ * @count: 
+ * @cancellable: 
+ * @err: 
+ *
+ * Description...
+ *
+ * Returns: 
  */
 gssize mega_http_client_write(MegaHttpClient* http_client, const guchar* buffer, gsize count, GCancellable* cancellable, GError** err)
 {
@@ -808,7 +824,16 @@ gssize mega_http_client_write(MegaHttpClient* http_client, const guchar* buffer,
 }
 
 /**
- * mega_http_client_read: (skip)
+ * mega_http_client_read:
+ * @http_client: a #MegaHttpClient
+ * @buffer: 
+ * @count: 
+ * @cancellable: 
+ * @err: 
+ *
+ * Description...
+ *
+ * Returns: 
  */
 gssize mega_http_client_read(MegaHttpClient* http_client, guchar* buffer, gsize count, GCancellable* cancellable, GError** err)
 {
@@ -876,7 +901,14 @@ gssize mega_http_client_read(MegaHttpClient* http_client, guchar* buffer, gsize 
 }
 
 /**
- * mega_http_client_close: (skip)
+ * mega_http_client_close:
+ * @http_client: a #MegaHttpClient
+ * @cancellable: 
+ * @err: 
+ *
+ * Description...
+ *
+ * Returns: 
  */
 gboolean mega_http_client_close(MegaHttpClient* http_client, gboolean force, GCancellable* cancellable, GError** err)
 {
@@ -900,7 +932,14 @@ gboolean mega_http_client_close(MegaHttpClient* http_client, gboolean force, GCa
 }
 
 /**
- * mega_http_client_get_response_length: (skip)
+ * mega_http_client_get_response_length:
+ * @http_client: a #MegaHttpClient
+ * @cancellable: 
+ * @err
+ *
+ * Description...
+ *
+ * Returns: 
  */
 gint64 mega_http_client_get_response_length(MegaHttpClient* http_client, GCancellable* cancellable, GError** err)
 {
@@ -951,20 +990,39 @@ static void mega_http_client_get_property(GObject *object, guint property_id, GV
 
 G_DEFINE_TYPE(MegaHttpClient, mega_http_client, G_TYPE_OBJECT);
 
+static gboolean stri_equal (gconstpointer v1, gconstpointer v2) 
+{
+  const gchar *string1 = v1;
+  const gchar *string2 = v2;
+
+  return g_ascii_strcasecmp (string1, string2) == 0;
+}
+
+static guint stri_hash (gconstpointer v)
+{
+  const signed char *p;
+  guint32 h = 5381;
+
+  for (p = v; *p != '\0'; p++)
+    h = (h << 5) + h + g_ascii_tolower(*p);
+
+  return h;
+}
+
 static void mega_http_client_init(MegaHttpClient *http_client)
 {
   MegaHttpClientPrivate* priv = http_client->priv = G_TYPE_INSTANCE_GET_PRIVATE(http_client, MEGA_TYPE_HTTP_CLIENT, MegaHttpClientPrivate);
 
   priv->client = g_socket_client_new();
   g_socket_client_set_timeout(priv->client, 60);
-
+  g_socket_client_set_family(priv->client, G_SOCKET_FAMILY_IPV4);
   priv->request_headers = g_hash_table_new_full(stri_hash, stri_equal, g_free, g_free);
   priv->response_headers = g_hash_table_new_full(stri_hash, stri_equal, g_free, g_free);
-
   priv->regex_url = g_regex_new("^([a-z]+)://([a-z0-9.-]+(?::([0-9]+))?)(/.+)?$", G_REGEX_CASELESS, 0, NULL);
   priv->regex_status = g_regex_new("^HTTP/([0-9]+\\.[0-9]+) ([0-9]+) (.+)$", 0, 0, NULL);
 
   // set default headers
+  mega_http_client_set_header(http_client, "Referer", "https://mega.co.nz/");
   mega_http_client_set_header(http_client, "User-Agent", "Megatools (" VERSION ")");
   mega_http_client_set_header(http_client, "Connection", "keep-alive");
 }
@@ -989,7 +1047,7 @@ static void mega_http_client_finalize(GObject *object)
   g_free(priv->resource);
   g_hash_table_destroy(priv->request_headers);
   g_hash_table_destroy(priv->response_headers);
-  g_clear_object(&priv->client);
+  g_object_unref(priv->client);
   g_regex_unref(priv->regex_url);
   g_regex_unref(priv->regex_status);
 
@@ -1016,11 +1074,6 @@ static void mega_http_client_class_init(MegaHttpClientClass *klass)
   /* object signals */
 
   /* object signals end */
-}
-
-GQuark mega_http_client_error_quark(void)
-{
-  return g_quark_from_static_string("mega-http-client-error-quark");
 }
 
 // }}}

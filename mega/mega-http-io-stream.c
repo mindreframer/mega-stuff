@@ -18,10 +18,13 @@
  */
 
 /**
- * MegaHttpIOStream:
+ * SECTION:mega-http-io-stream
+ * @short_description: 
+ * @see_also: #GIOStream
+ * @stability: Stable
+ * @include: mega-http-io-stream.h
  *
- * Object that is used to pass input and output streams from
- * #mega_http_client_post and #mega_http_client_post_simple.
+ * Description...
  */
 
 #include "mega-http-io-stream.h"
@@ -32,8 +35,6 @@
 struct _MegaHttpIOStreamPrivate
 {
   MegaHttpClient* client;
-  GInputStream* is;
-  GOutputStream* os;
 };
 
 // {{{ GObject property and signal enums
@@ -63,27 +64,23 @@ static guint signals[N_SIGNALS];
  */
 MegaHttpIOStream* mega_http_io_stream_new(MegaHttpClient* client)
 {
-  return g_object_new(MEGA_TYPE_HTTP_IO_STREAM, "client", client, NULL);
+  MegaHttpIOStream *http_io_stream = g_object_new(MEGA_TYPE_HTTP_IO_STREAM, "client", client, NULL);
+
+  return http_io_stream;
 }
 
 static GInputStream* get_input_stream(GIOStream* stream)
 {
   MegaHttpIOStream* http_io_stream = MEGA_HTTP_IO_STREAM(stream);
 
-  if (!http_io_stream->priv->is)
-    http_io_stream->priv->is = G_INPUT_STREAM(mega_http_input_stream_new(http_io_stream->priv->client));
-
-  return http_io_stream->priv->is;
+  return G_INPUT_STREAM(mega_http_input_stream_new(http_io_stream->priv->client));
 }
 
 static GOutputStream* get_output_stream(GIOStream* stream)
 {
   MegaHttpIOStream* http_io_stream = MEGA_HTTP_IO_STREAM(stream);
 
-  if (!http_io_stream->priv->os)
-    http_io_stream->priv->os = G_OUTPUT_STREAM(mega_http_output_stream_new(http_io_stream->priv->client));
-
-  return http_io_stream->priv->os;
+  return G_OUTPUT_STREAM(mega_http_output_stream_new(http_io_stream->priv->client));
 }
 
 static gboolean close_fn(GIOStream* stream, GCancellable* cancellable, GError** error)
@@ -145,9 +142,8 @@ static void mega_http_io_stream_finalize(GObject *object)
 {
   MegaHttpIOStream *http_io_stream = MEGA_HTTP_IO_STREAM(object);
 
-  g_clear_object(&http_io_stream->priv->client);
-  g_clear_object(&http_io_stream->priv->is);
-  g_clear_object(&http_io_stream->priv->os);
+  if (http_io_stream->priv->client)
+    g_object_unref(http_io_stream->priv->client);
 
   G_OBJECT_CLASS(mega_http_io_stream_parent_class)->finalize(object);
 }

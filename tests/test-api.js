@@ -20,51 +20,13 @@
 const Gio = imports.gi.Gio;
 const GLib = imports.gi.GLib;
 const Lang = imports.lang;
-const Mega = imports.gi.Mega;
+const MegaCore = imports.gi.Mega;
+const Mega = imports.mega;
 const Config = imports.config;
 
-function each(arr, fn) {
-	var i;
-	for (i = 0; i < arr.length; i++) {
-		fn(arr[i]);
-	}
-}
-
-// load session
-
 var s = new Mega.Session();
-var fs = s.filesystem;
 
-try {
-	s.load(Config.USERNAME, Config.PASSWORD);
-} catch(ex) {
-	s.login(Config.USERNAME, Config.PASSWORD);
-	fs.load();
-	s.save();
-}
+s.open(Config.USERNAME, Config.PASSWORD);
 
-// iterate over nodes
-
-print("Iter:");
-each(fs.get_root_nodes(), function(n) {
-	print(n.path);
-	each(n.get_children(), function(cn) {
-		print("  -> " + cn.path);
-	});
-});
-
-// glob match
-
-print("Glob:");
-each(fs.glob('/R*/B*/*/*full*'), function(n) {
-	print(n.path);
-});
-
-// filter nodes
-
-print("Filter:");
-each(fs.filter_nodes(function(n) {
-	return !!n.name.match(/sigtar/);
-}), function(n) {
-	print(n.path);
-});
+// load/save session
+// fs/node api
