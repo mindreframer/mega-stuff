@@ -199,6 +199,34 @@ class Mega(object):
 
     ##########################################################################
     # GET
+    
+    def find_path_descriptor(self, path):
+        """
+        Find descriptor of folder inside a path. i.e.: folder1/folder2/folder3
+        Params:
+            path, string like folder1/folder2/folder3
+        Return:
+            Descriptor (str) of folder3 if exists, None otherwise
+        """
+        paths = path.split('/')
+
+        files = self.get_files()
+        parent_desc = self.root_id
+        found = False
+        for foldername in paths:
+            if foldername != '':
+                for file in files.iteritems():
+                    if file[1]['a'] and file[1]['t'] and \
+                            file[1]['a']['n'] == foldername:
+                        if parent_desc == file[1]['p']:
+                            parent_desc = file[0]
+                            found = True
+                if found:
+                    found = False
+                else:
+                    return None
+        return parent_desc
+    
     def find(self, filename):
         """
         Return file object from given filename
@@ -531,37 +559,41 @@ class Mega(object):
         mac_str = '\0' * 16
         mac_encryptor = AES.new(k_str, AES.MODE_CBC, mac_str)
         iv_str = a32_to_str([ul_key[4], ul_key[5], ul_key[4], ul_key[5]])
+        if file_size > 0:
+            for chunk_start, chunk_size in get_chunks(file_size):
+                chunk = input_file.read(chunk_size)
+                upload_progress += len(chunk)
 
-        for chunk_start, chunk_size in get_chunks(file_size):
-            chunk = input_file.read(chunk_size)
-            upload_progress += len(chunk)
+                encryptor = AES.new(k_str, AES.MODE_CBC, iv_str)
+                for i in range(0, len(chunk)-16, 16):
+                    block = chunk[i:i + 16]
+                    encryptor.encrypt(block)
 
-            encryptor = AES.new(k_str, AES.MODE_CBC, iv_str)
-            for i in range(0, len(chunk)-16, 16):
+                #fix for files under 16 bytes failing
+                if file_size > 16:
+                    i += 16
+                else:
+                    i = 0
+
                 block = chunk[i:i + 16]
-                encryptor.encrypt(block)
+                if len(block) % 16:
+                    block += '\0' * (16 - len(block) % 16)
+                mac_str = mac_encryptor.encrypt(encryptor.encrypt(block))
 
-            #fix for files under 16 bytes failing
-            if file_size > 16:
-                i += 16
-            else:
-                i = 0
+                #encrypt file and upload
+                chunk = aes.encrypt(chunk)
+                output_file = requests.post(ul_url + "/" + str(chunk_start),
+                                            data=chunk, timeout=self.timeout)
+                completion_file_handle = output_file.text
 
-            block = chunk[i:i + 16]
-            if len(block) % 16:
-                block += '\0' * (16 - len(block) % 16)
-            mac_str = mac_encryptor.encrypt(encryptor.encrypt(block))
-
-            #encrypt file and upload
-            chunk = aes.encrypt(chunk)
-            output_file = requests.post(ul_url + "/" + str(chunk_start),
-                                        data=chunk, timeout=self.timeout)
+                if self.options.get('verbose') is True:
+                    # upload progress
+                    print('{0} of {1} uploaded'.format(upload_progress, file_size))
+        else:
+            output_file = requests.post(ul_url + "/0",
+                                            data='', timeout=self.timeout)
             completion_file_handle = output_file.text
-
-            if self.options.get('verbose') is True:
-                # upload progress
-                print('{0} of {1} uploaded'.format(upload_progress, file_size))
-
+            
         file_mac = str_to_a32(mac_str)
 
         #determine meta mac
