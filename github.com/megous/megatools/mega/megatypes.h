@@ -26,9 +26,5 @@ typedef struct _MegaHttpClient MegaHttpClient;
 typedef struct _MegaHttpIOStream MegaHttpIOStream;
 typedef struct _MegaHttpOutputStream MegaHttpOutputStream;
 typedef struct _MegaHttpInputStream MegaHttpInputStream;
-typedef struct _MegaSession MegaSession;
-typedef struct _MegaFilesystem MegaFilesystem;
-typedef struct _MegaNode MegaNode;
-typedef struct _MegaApi MegaApi;
 
 #endif

@@ -18,9 +18,13 @@
  */
 
 /**
- * MegaHttpOutputStream:
+ * SECTION:mega-http-output-stream
+ * @short_description: 
+ * @see_also: #GOutputStream
+ * @stability: Stable
+ * @include: mega-http-output-stream.h
  *
- * Stream for sending HTTP request body.
+ * Description...
  */
 
 #include "mega-http-output-stream.h"
@@ -58,7 +62,9 @@ static guint signals[N_SIGNALS];
  */
 MegaHttpOutputStream* mega_http_output_stream_new(MegaHttpClient* client)
 {
-  return g_object_new(MEGA_TYPE_HTTP_OUTPUT_STREAM, "client", client, NULL);
+  MegaHttpOutputStream *http_output_stream = g_object_new(MEGA_TYPE_HTTP_OUTPUT_STREAM, "client", client, NULL);
+
+  return http_output_stream;
 }
 
 static gssize stream_write(GOutputStream *stream, const void *buffer, gsize count, GCancellable *cancellable, GError **error)
@@ -107,11 +113,21 @@ static void mega_http_output_stream_init(MegaHttpOutputStream *http_output_strea
   http_output_stream->priv = G_TYPE_INSTANCE_GET_PRIVATE(http_output_stream, MEGA_TYPE_HTTP_OUTPUT_STREAM, MegaHttpOutputStreamPrivate);
 }
 
+static void mega_http_output_stream_dispose(GObject *object)
+{
+  //MegaHttpOutputStream *http_output_stream = MEGA_HTTP_OUTPUT_STREAM(object);
+
+  // Free everything that may hold reference to MegaHttpOutputStream
+
+  G_OBJECT_CLASS(mega_http_output_stream_parent_class)->dispose(object);
+}
+
 static void mega_http_output_stream_finalize(GObject *object)
 {
   MegaHttpOutputStream *http_output_stream = MEGA_HTTP_OUTPUT_STREAM(object);
 
-  g_clear_object(&http_output_stream->priv->client);
+  if (http_output_stream->priv->client)
+    g_object_unref(http_output_stream->priv->client);
 
   G_OBJECT_CLASS(mega_http_output_stream_parent_class)->finalize(object);
 }
@@ -124,6 +140,7 @@ static void mega_http_output_stream_class_init(MegaHttpOutputStreamClass *klass)
   gobject_class->set_property = mega_http_output_stream_set_property;
   gobject_class->get_property = mega_http_output_stream_get_property;
 
+  gobject_class->dispose = mega_http_output_stream_dispose;
   gobject_class->finalize = mega_http_output_stream_finalize;
 
   g_type_class_add_private(klass, sizeof(MegaHttpOutputStreamPrivate));
